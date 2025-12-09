@@ -1,0 +1,392 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/uploads/csv": {
+      "post": {
+        "operationId": "UploadsController_uploadCsv",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" },
+                  "audienceId": { "type": "string", "format": "uuid" },
+                  "timezoneFallback": { "type": "string" }
+                },
+                "required": ["file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "CSV uploaded and contacts upserted" }
+        },
+        "tags": [
+          "Uploads"
+        ]
+      }
+    },
+    "/uploads/csv/send": {
+      "post": {
+        "operationId": "UploadsController_sendCsv",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" },
+                  "subject": { "type": "string" },
+                  "campaignName": { "type": "string" },
+                  "bodyHtml": { "type": "string" },
+                  "bodyText": { "type": "string" },
+                  "fromName": { "type": "string" },
+                  "fromEmail": { "type": "string", "format": "email" },
+                  "replyTo": { "type": "string", "format": "email" },
+                  "timezoneFallback": { "type": "string" }
+                },
+                "required": ["file", "subject"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "CSV parsed, contacts created, messages enqueued" }
+        },
+        "tags": [
+          "Uploads"
+        ]
+      }
+    },
+    "/audiences": {
+      "post": {
+        "operationId": "AudiencesController_createAudience",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAudienceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Audiences"
+        ]
+      },
+      "get": {
+        "operationId": "AudiencesController_listAudiences",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Audiences"
+        ]
+      }
+    },
+    "/audiences/{id}/contacts": {
+      "post": {
+        "operationId": "AudiencesController_addContact",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Audiences"
+        ]
+      },
+      "get": {
+        "operationId": "AudiencesController_listContacts",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Audiences"
+        ]
+      }
+    },
+    "/audiences/{id}/sync": {
+      "post": {
+        "operationId": "AudiencesController_triggerSync",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Audiences"
+        ]
+      }
+    },
+    "/templates": {
+      "post": {
+        "operationId": "TemplatesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Templates"
+        ]
+      },
+      "get": {
+        "operationId": "TemplatesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Templates"
+        ]
+      }
+    },
+    "/campaigns": {
+      "post": {
+        "operationId": "CampaignsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCampaignDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Campaigns"
+        ]
+      },
+      "get": {
+        "operationId": "CampaignsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Campaigns"
+        ]
+      }
+    },
+    "/campaigns/{id}/status/{status}": {
+      "patch": {
+        "operationId": "CampaignsController_updateStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Campaigns"
+        ]
+      }
+    },
+    "/webhooks/mailgun": {
+      "post": {
+        "operationId": "MailgunWebhookController_handleWebhook",
+        "parameters": [
+          {
+            "name": "user-agent",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MailgunWebhook"
+        ]
+      }
+    },
+    "/reports/campaigns/{id}": {
+      "get": {
+        "operationId": "ReportsController_getCampaignStats",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/reports/campaigns/{id}/messages": {
+      "get": {
+        "operationId": "ReportsController_getCampaignMessages",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reports"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Mail Campaign API",
+    "description": "API docs for the Mail Campaign backend",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "schemas": {
+      "UploadCsvDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SendCsvDto": {
+        "type": "object",
+        "properties": {
+          "subject": { "type": "string" },
+          "campaignName": { "type": "string" },
+          "bodyHtml": { "type": "string" },
+          "bodyText": { "type": "string" },
+          "fromName": { "type": "string" },
+          "fromEmail": { "type": "string", "format": "email" },
+          "replyTo": { "type": "string", "format": "email" },
+          "timezoneFallback": { "type": "string" }
+        },
+        "required": ["subject"]
+      },
+      "CreateAudienceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateTemplateDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateCampaignDto": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  }
+}

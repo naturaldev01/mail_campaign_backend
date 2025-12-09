@@ -1,0 +1,241 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var UploadsService_1;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.UploadsService = void 0;
+const common_1 = require("@nestjs/common");
+const supabase_service_1 = require("../supabase/supabase.service");
+const sync_1 = require("csv-parse/sync");
+const queues_service_1 = require("../queues/queues.service");
+let UploadsService = UploadsService_1 = class UploadsService {
+    supabase;
+    queueService;
+    logger = new common_1.Logger(UploadsService_1.name);
+    constructor(supabase, queueService) {
+        this.supabase = supabase;
+        this.queueService = queueService;
+    }
+    async uploadCsv(file, dto) {
+        if (!file) {
+            throw new common_1.BadRequestException('CSV file is required');
+        }
+        const csvText = file.buffer.toString('utf-8');
+        const records = (0, sync_1.parse)(csvText, {
+            columns: true,
+            skip_empty_lines: true,
+            trim: true,
+        });
+        const supabaseClient = this.supabase.getClient();
+        const { data: batch, error: batchError } = await supabaseClient
+            .from('upload_batches')
+            .insert({
+            filename: file.originalname,
+            total_rows: records.length,
+            status: 'processing',
+        })
+            .select()
+            .single();
+        if (batchError || !batch) {
+            this.logger.error('Failed to create upload batch', batchError);
+            throw new common_1.BadRequestException('Could not create upload batch');
+        }
+        const validContacts = [];
+        const stagedValid = [];
+        const stagedInvalid = [];
+        const seen = new Set();
+        for (const record of records) {
+            const email = (record.email ?? '').toLowerCase();
+            const timezone = record.timezone ?? dto.timezoneFallback;
+            if (!email || !timezone) {
+                stagedInvalid.push({
+                    batch_id: batch.id,
+                    email,
+                    attributes: record,
+                    error: 'Missing email or timezone',
+                });
+                continue;
+            }
+            if (seen.has(email)) {
+                stagedInvalid.push({
+                    batch_id: batch.id,
+                    email,
+                    attributes: record,
+                    error: 'Duplicate email in batch',
+                });
+                continue;
+            }
+            seen.add(email);
+            const attributes = { ...record, timezone };
+            delete attributes.email;
+            delete attributes.timezone;
+            stagedValid.push({
+                batch_id: batch.id,
+                email,
+                attributes,
+            });
+            if (dto.audienceId) {
+                validContacts.push({
+                    audience_id: dto.audienceId,
+                    email,
+                    attributes,
+                    status: 'active',
+                });
+            }
+        }
+        if (stagedValid.length) {
+            await supabaseClient.from('staged_contacts').insert(stagedValid);
+        }
+        if (stagedInvalid.length) {
+            await supabaseClient.from('staged_contacts').insert(stagedInvalid);
+        }
+        if (validContacts.length) {
+            await supabaseClient
+                .from('contacts')
+                .upsert(validContacts, { onConflict: 'audience_id,email' });
+        }
+        await supabaseClient
+            .from('upload_batches')
+            .update({
+            status: 'completed',
+            valid_rows: stagedValid.length,
+            invalid_rows: stagedInvalid.length,
+        })
+            .eq('id', batch.id);
+        return {
+            batchId: batch.id,
+            totalRows: records.length,
+            validRows: stagedValid.length,
+            invalidRows: stagedInvalid.length,
+        };
+    }
+    async sendCsv(file, dto) {
+        if (!file) {
+            throw new common_1.BadRequestException('CSV file is required');
+        }
+        if (!dto.subject) {
+            throw new common_1.BadRequestException('Subject is required');
+        }
+        const csvText = file.buffer.toString('utf-8');
+        const records = (0, sync_1.parse)(csvText, {
+            columns: true,
+            skip_empty_lines: true,
+            trim: true,
+        });
+        const supabaseClient = this.supabase.getClient();
+        const audienceName = dto.campaignName ?? `CSV Upload ${new Date().toISOString()}`;
+        const { data: audience, error: audienceError } = await supabaseClient
+            .from('audiences')
+            .insert({
+            name: audienceName,
+            description: 'Ad-hoc audience for CSV send',
+            type: 'static',
+        })
+            .select()
+            .single();
+        if (audienceError || !audience) {
+            this.logger.error('Failed to create ad-hoc audience', audienceError);
+            throw new common_1.BadRequestException('Could not create audience for CSV send');
+        }
+        const contactsPayload = [];
+        const seen = new Set();
+        for (const record of records) {
+            const email = (record.email ?? '').toLowerCase();
+            const timezone = record.timezone ?? dto.timezoneFallback ?? 'UTC';
+            if (!email)
+                continue;
+            if (seen.has(email))
+                continue;
+            seen.add(email);
+            const attributes = { ...record, timezone };
+            delete attributes.email;
+            delete attributes.timezone;
+            contactsPayload.push({
+                audience_id: audience.id,
+                email,
+                attributes,
+                status: 'active',
+            });
+        }
+        if (!contactsPayload.length) {
+            throw new common_1.BadRequestException('No valid emails found in CSV');
+        }
+        const { data: contacts, error: contactError } = await supabaseClient
+            .from('contacts')
+            .upsert(contactsPayload, { onConflict: 'audience_id,email' })
+            .select();
+        if (contactError) {
+            this.logger.error('Failed to upsert contacts from CSV', contactError);
+            throw new common_1.BadRequestException('Could not upsert contacts from CSV');
+        }
+        const { data: campaign, error: campaignError } = await supabaseClient
+            .from('campaigns')
+            .insert({
+            name: dto.campaignName ?? `CSV Campaign ${new Date().toISOString()}`,
+            template_id: null,
+            status: 'sending',
+            scheduled_at: null,
+            from_name: dto.fromName,
+            from_email: dto.fromEmail,
+            reply_to: dto.replyTo,
+            subject_override: dto.subject,
+            send_options: { timezone: dto.timezoneFallback ?? 'UTC' },
+        })
+            .select()
+            .single();
+        if (campaignError || !campaign) {
+            this.logger.error('Failed to create campaign for CSV send', campaignError);
+            throw new common_1.BadRequestException('Could not create campaign for CSV send');
+        }
+        await supabaseClient.from('campaign_audiences').insert({
+            campaign_id: campaign.id,
+            audience_id: audience.id,
+        });
+        for (const contact of contacts ?? []) {
+            const { data: message, error: messageError } = await supabaseClient
+                .from('messages')
+                .upsert({
+                campaign_id: campaign.id,
+                contact_id: contact.id,
+                status: 'queued',
+            }, { onConflict: 'campaign_id,contact_id' })
+                .select()
+                .single();
+            if (messageError || !message) {
+                this.logger.error('Failed to create message record', messageError);
+                continue;
+            }
+            await this.queueService.enqueueMail({
+                messageId: message.id,
+                campaignId: campaign.id,
+                contactId: contact.id,
+                email: contact.email,
+                subject: dto.subject,
+                bodyHtml: dto.bodyHtml ?? undefined,
+                bodyText: dto.bodyText ?? undefined,
+                variables: contact.attributes ?? {},
+                sendAfter: new Date(),
+                replyTo: dto.replyTo,
+            });
+        }
+        return {
+            campaignId: campaign.id,
+            audienceId: audience.id,
+            queued: contacts?.length ?? 0,
+        };
+    }
+};
+exports.UploadsService = UploadsService;
+exports.UploadsService = UploadsService = UploadsService_1 = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [supabase_service_1.SupabaseService,
+        queues_service_1.QueueService])
+], UploadsService);
+//# sourceMappingURL=uploads.service.js.map
