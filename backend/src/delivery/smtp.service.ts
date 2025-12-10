@@ -34,9 +34,16 @@ export class SmtpService {
       secure,
       auth: user && pass ? { user, pass } : undefined,
     });
+    console.log('[smtp] transporter created', { host, port, secure, from: this.from, hasAuth: !!(user && pass) });
   }
 
   async sendEmail(params: SmtpSendParams) {
+    console.log('[smtp] sendEmail', {
+      to: params.to,
+      subject: params.subject,
+      replyTo: params.replyTo,
+      from: params.replyTo ?? this.from,
+    });
     const info = await this.transporter.sendMail({
       from: params.replyTo ?? this.from,
       to: params.to,

@@ -14,11 +14,77 @@ export class UploadsService {
     private readonly queueService: QueueService,
   ) {}
 
+  /**
+   * Parse CSV and do best-effort email detection:
+   * - Headers: normalize (trim + BOM remove + lowercase), pick the first header containing "email".
+   *   If not found or empty, scan row values for an email-looking string (contains "@" and basic regex).
+   *   Timezone: pick header containing "timezone" when present.
+   * - Headerless: scan each row cells for an email-looking value; use the next cell as timezone if present.
+   */
+  private parseCsvRecords(file: Express.Multer.File): Array<{ email?: string; timezone?: string; [key: string]: any }> {
+    const csvText = file.buffer.toString('utf-8');
+    const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    const sanitizeHeader = (h: string) => h.replace(/^\uFEFF/, '').trim().toLowerCase();
+
+    // Primary: expect headers, normalize them
+    const withHeaders = parse(csvText, {
+      columns: (header: string[]) => header.map(sanitizeHeader),
+      skip_empty_lines: true,
+      trim: true,
+    }) as Record<string, string>[];
+
+    if (withHeaders.length) {
+      const headers = Object.keys(withHeaders[0] ?? {});
+      const emailKey = headers.find((h) => h.includes('email'));
+      const timezoneKey = headers.find((h) => h.includes('timezone'));
+
+      const mapped = withHeaders.map((record): { email: string; timezone?: string; [key: string]: any } | null => {
+          const values = Object.values(record);
+          const fromColumn = emailKey ? record[emailKey] : undefined;
+          const fromScan = values.find((v) => v && emailRegex.test(v));
+          const email = (fromColumn ?? fromScan ?? '').toLowerCase().trim();
+          if (!email) return null;
+          const timezone = timezoneKey ? record[timezoneKey] : undefined;
+          return {
+            ...record,
+            email,
+            timezone,
+          };
+        });
+
+      return mapped.filter(
+        (r): r is { email: string; timezone?: string; [key: string]: any } => r !== null,
+      );
+    }
+
+    // Fallback: headerless, scan each row for an email-looking cell
+    const rows = parse(csvText, {
+      columns: false,
+      skip_empty_lines: true,
+      trim: true,
+    }) as string[][];
+
+    const mapped: Array<{ email: string; timezone?: string }> = [];
+    for (const row of rows) {
+      if (!row?.length) continue;
+      const emailCell = row.find((cell) => cell && emailRegex.test(cell));
+      if (!emailCell) continue;
+      const timezone = row.length > 1 ? row[1] : undefined;
+      mapped.push({ email: emailCell.toLowerCase().trim(), timezone });
+    }
+
+    return mapped;
+  }
+
   async uploadCsv(file: Express.Multer.File, dto: UploadCsvDto) {
     if (!file) {
       throw new BadRequestException('CSV file is required');
     }
     const supabaseClient = this.supabase.getClient();
+    console.log('[uploadCsv] start', {
+      filename: file.originalname,
+      size: file.size,
+    });
 
     // persist file to storage for traceability
     const storagePath = `uploads/${Date.now()}-${file.originalname}`;
@@ -32,12 +98,10 @@ export class UploadsService {
       this.logger.warn('Failed to persist CSV to storage', storageError);
     }
 
-    const csvText = file.buffer.toString('utf-8');
-    const records = parse(csvText, {
-      columns: true,
-      skip_empty_lines: true,
-      trim: true,
-    }) as Record<string, string>[];
+    const records = this.parseCsvRecords(file);
+    console.log('[uploadCsv] parsed records', {
+      total: records.length,
+    });
 
     const { data: batch, error: batchError } = await supabaseClient
       .from('upload_batches')
@@ -141,6 +205,11 @@ export class UploadsService {
     }
 
     const supabaseClient = this.supabase.getClient();
+    console.log('[sendCsv] start', {
+      filename: file.originalname,
+      size: file.size,
+      subject: dto.subject,
+    });
 
     // persist file to storage
     const storagePath = `uploads/${Date.now()}-${file.originalname}`;
@@ -154,12 +223,8 @@ export class UploadsService {
       this.logger.warn('Failed to persist CSV to storage', storageError);
     }
 
-    const csvText = file.buffer.toString('utf-8');
-    const records = parse(csvText, {
-      columns: true,
-      skip_empty_lines: true,
-      trim: true,
-    }) as Record<string, string>[];
+    const records = this.parseCsvRecords(file);
+    console.log('[sendCsv] parsed records', { total: records.length });
 
     // Create an ad-hoc audience to hold these contacts (kept internal)
     const audienceName = dto.campaignName ?? `CSV Upload ${new Date().toISOString()}`;
@@ -201,6 +266,7 @@ export class UploadsService {
     if (!contactsPayload.length) {
       throw new BadRequestException('No valid emails found in CSV');
     }
+    console.log('[sendCsv] contacts prepared', { total: contactsPayload.length });
 
     const { data: contacts, error: contactError } = await supabaseClient
       .from('contacts')
@@ -239,6 +305,7 @@ export class UploadsService {
       campaign_id: campaign.id,
       audience_id: audience.id,
     });
+    console.log('[sendCsv] linked campaign to audience', { campaignId: campaign.id, audienceId: audience.id });
 
     // Create messages and enqueue
     for (const contact of contacts ?? []) {

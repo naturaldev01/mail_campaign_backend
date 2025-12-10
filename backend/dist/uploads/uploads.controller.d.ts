@@ -9,10 +9,12 @@ export declare class UploadsController {
         totalRows: number;
         validRows: number;
         invalidRows: number;
+        storagePath: string | null;
     }>;
     sendCsv(file: Express.Multer.File, dto: SendCsvDto): Promise<{
         campaignId: any;
         audienceId: any;
         queued: number;
+        storagePath: string | null;
     }>;
 }

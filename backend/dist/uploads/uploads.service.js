@@ -23,17 +23,75 @@ let UploadsService = UploadsService_1 = class UploadsService {
         this.supabase = supabase;
         this.queueService = queueService;
     }
+    parseCsvRecords(file) {
+        const csvText = file.buffer.toString('utf-8');
+        const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+        const sanitizeHeader = (h) => h.replace(/^\uFEFF/, '').trim().toLowerCase();
+        const withHeaders = (0, sync_1.parse)(csvText, {
+            columns: (header) => header.map(sanitizeHeader),
+            skip_empty_lines: true,
+            trim: true,
+        });
+        if (withHeaders.length) {
+            const headers = Object.keys(withHeaders[0] ?? {});
+            const emailKey = headers.find((h) => h.includes('email'));
+            const timezoneKey = headers.find((h) => h.includes('timezone'));
+            const mapped = withHeaders.map((record) => {
+                const values = Object.values(record);
+                const fromColumn = emailKey ? record[emailKey] : undefined;
+                const fromScan = values.find((v) => v && emailRegex.test(v));
+                const email = (fromColumn ?? fromScan ?? '').toLowerCase().trim();
+                if (!email)
+                    return null;
+                const timezone = timezoneKey ? record[timezoneKey] : undefined;
+                return {
+                    ...record,
+                    email,
+                    timezone,
+                };
+            });
+            return mapped.filter((r) => r !== null);
+        }
+        const rows = (0, sync_1.parse)(csvText, {
+            columns: false,
+            skip_empty_lines: true,
+            trim: true,
+        });
+        const mapped = [];
+        for (const row of rows) {
+            if (!row?.length)
+                continue;
+            const emailCell = row.find((cell) => cell && emailRegex.test(cell));
+            if (!emailCell)
+                continue;
+            const timezone = row.length > 1 ? row[1] : undefined;
+            mapped.push({ email: emailCell.toLowerCase().trim(), timezone });
+        }
+        return mapped;
+    }
     async uploadCsv(file, dto) {
         if (!file) {
             throw new common_1.BadRequestException('CSV file is required');
         }
-        const csvText = file.buffer.toString('utf-8');
-        const records = (0, sync_1.parse)(csvText, {
-            columns: true,
-            skip_empty_lines: true,
-            trim: true,
-        });
         const supabaseClient = this.supabase.getClient();
+        console.log('[uploadCsv] start', {
+            filename: file.originalname,
+            size: file.size,
+        });
+        const storagePath = `uploads/${Date.now()}-${file.originalname}`;
+        const { error: storageError } = await supabaseClient.storage
+            .from('uploads')
+            .upload(storagePath, file.buffer, {
+            contentType: file.mimetype ?? 'text/csv',
+            upsert: false,
+        });
+        if (storageError) {
+            this.logger.warn('Failed to persist CSV to storage', storageError);
+        }
+        const records = this.parseCsvRecords(file);
+        console.log('[uploadCsv] parsed records', {
+            total: records.length,
+        });
         const { data: batch, error: batchError } = await supabaseClient
             .from('upload_batches')
             .insert({
@@ -114,6 +172,7 @@ let UploadsService = UploadsService_1 = class UploadsService {
             totalRows: records.length,
             validRows: stagedValid.length,
             invalidRows: stagedInvalid.length,
+            storagePath: storageError ? null : storagePath,
         };
     }
     async sendCsv(file, dto) {
@@ -123,13 +182,24 @@ let UploadsService = UploadsService_1 = class UploadsService {
         if (!dto.subject) {
             throw new common_1.BadRequestException('Subject is required');
         }
-        const csvText = file.buffer.toString('utf-8');
-        const records = (0, sync_1.parse)(csvText, {
-            columns: true,
-            skip_empty_lines: true,
-            trim: true,
-        });
         const supabaseClient = this.supabase.getClient();
+        console.log('[sendCsv] start', {
+            filename: file.originalname,
+            size: file.size,
+            subject: dto.subject,
+        });
+        const storagePath = `uploads/${Date.now()}-${file.originalname}`;
+        const { error: storageError } = await supabaseClient.storage
+            .from('uploads')
+            .upload(storagePath, file.buffer, {
+            contentType: file.mimetype ?? 'text/csv',
+            upsert: false,
+        });
+        if (storageError) {
+            this.logger.warn('Failed to persist CSV to storage', storageError);
+        }
+        const records = this.parseCsvRecords(file);
+        console.log('[sendCsv] parsed records', { total: records.length });
         const audienceName = dto.campaignName ?? `CSV Upload ${new Date().toISOString()}`;
         const { data: audience, error: audienceError } = await supabaseClient
             .from('audiences')
@@ -167,6 +237,7 @@ let UploadsService = UploadsService_1 = class UploadsService {
         if (!contactsPayload.length) {
             throw new common_1.BadRequestException('No valid emails found in CSV');
         }
+        console.log('[sendCsv] contacts prepared', { total: contactsPayload.length });
         const { data: contacts, error: contactError } = await supabaseClient
             .from('contacts')
             .upsert(contactsPayload, { onConflict: 'audience_id,email' })
@@ -198,6 +269,7 @@ let UploadsService = UploadsService_1 = class UploadsService {
             campaign_id: campaign.id,
             audience_id: audience.id,
         });
+        console.log('[sendCsv] linked campaign to audience', { campaignId: campaign.id, audienceId: audience.id });
         for (const contact of contacts ?? []) {
             const { data: message, error: messageError } = await supabaseClient
                 .from('messages')
@@ -229,6 +301,7 @@ let UploadsService = UploadsService_1 = class UploadsService {
             campaignId: campaign.id,
             audienceId: audience.id,
             queued: contacts?.length ?? 0,
+            storagePath: storageError ? null : storagePath,
         };
     }
 };

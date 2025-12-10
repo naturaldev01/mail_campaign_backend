@@ -56,6 +56,19 @@ export class CampaignsService {
     return data;
   }
 
+  async getCampaign(id: string) {
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('campaigns')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+    return data;
+  }
+
   async updateStatus(id: string, status: string) {
     const { data, error } = await this.supabase
       .getClient()

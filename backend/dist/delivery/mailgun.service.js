@@ -31,6 +31,12 @@ let MailgunService = MailgunService_1 = class MailgunService {
             this.logger.error('Mailgun credentials are missing');
             throw new Error('Mailgun not configured');
         }
+        console.log('[mailgun] sendEmail', {
+            to: params.to,
+            subject: params.subject,
+            from: params.from ?? this.defaultFrom,
+            domain: this.domain,
+        });
         const auth = Buffer.from(`api:${this.apiKey}`).toString('base64');
         const body = new URLSearchParams({
             from: params.from ?? this.defaultFrom,

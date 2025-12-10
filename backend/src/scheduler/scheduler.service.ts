@@ -15,6 +15,7 @@ export class SchedulerService {
   @Cron(CronExpression.EVERY_MINUTE)
   async scanScheduledCampaigns() {
     const nowIso = new Date().toISOString();
+    console.log('[scheduler] scanScheduledCampaigns start', { nowIso });
     const { data: campaigns, error } = await this.supabase
       .getClient()
       .from('campaigns')
@@ -26,7 +27,11 @@ export class SchedulerService {
       this.logger.error('Failed to load scheduled campaigns', error);
       return;
     }
-    if (!campaigns?.length) return;
+    if (!campaigns?.length) {
+      console.log('[scheduler] no scheduled campaigns');
+      return;
+    }
+    console.log('[scheduler] scheduled campaigns found', { count: campaigns.length });
 
     for (const campaign of campaigns) {
       try {
@@ -108,6 +113,11 @@ export class SchedulerService {
         variables: contact.attributes ?? {},
         sendAfter,
         replyTo: campaign.reply_to ?? undefined,
+      });
+      console.log('[scheduler] enqueued mail', {
+        campaignId: campaign.id,
+        contactId: contact.id,
+        email: contact.email,
       });
     }
   }

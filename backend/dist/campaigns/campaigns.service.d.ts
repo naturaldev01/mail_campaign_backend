@@ -6,5 +6,6 @@ export declare class CampaignsService {
     constructor(supabase: SupabaseService);
     createCampaign(dto: CreateCampaignDto): Promise<any>;
     listCampaigns(): Promise<any[]>;
+    getCampaign(id: string): Promise<any>;
     updateStatus(id: string, status: string): Promise<any>;
 }

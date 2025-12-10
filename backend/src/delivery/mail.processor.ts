@@ -23,10 +23,16 @@ export class MailProcessor extends WorkerHost {
     const payload = job.data;
     const supabase = this.supabase.getClient();
 
+    console.log('[mail.processor] start', {
+      messageId: payload.messageId,
+      email: payload.email,
+      campaignId: payload.campaignId,
+    });
     await supabase.from('messages').update({ status: 'sending' }).eq('id', payload.messageId);
 
     try {
       const provider = process.env.MAIL_PROVIDER ?? 'mailgun';
+      console.log('[mail.processor] provider selected', { provider });
 
       let result: { id: string };
       if (provider === 'smtp') {
@@ -52,9 +58,11 @@ export class MailProcessor extends WorkerHost {
         .from('messages')
         .update({ status: 'sent', provider_message_id: result.id, sent_at: new Date().toISOString() })
         .eq('id', payload.messageId);
+      console.log('[mail.processor] sent', { messageId: payload.messageId, providerId: result.id });
     } catch (err) {
       const errorMessage = (err as Error).message;
       this.logger.error(`Failed to send mail for message ${payload.messageId}`, err as any);
+      console.log('[mail.processor] failed', { messageId: payload.messageId, error: errorMessage });
       await supabase
         .from('messages')
         .update({ status: 'failed', last_error: errorMessage })

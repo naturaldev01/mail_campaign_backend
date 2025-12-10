@@ -62,6 +62,18 @@ let CampaignsService = CampaignsService_1 = class CampaignsService {
         }
         return data;
     }
+    async getCampaign(id) {
+        const { data, error } = await this.supabase
+            .getClient()
+            .from('campaigns')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (error) {
+            throw new common_1.BadRequestException(error.message);
+        }
+        return data;
+    }
     async updateStatus(id, status) {
         const { data, error } = await this.supabase
             .getClient()

@@ -22,10 +22,20 @@ let CampaignsController = class CampaignsController {
         this.campaignsService = campaignsService;
     }
     create(dto) {
+        console.log('[campaigns] create payload', {
+            name: dto.name,
+            scheduledAt: dto.scheduledAt,
+            sendOptions: dto.sendOptions,
+            templateId: dto.templateId,
+            audienceIdsCount: dto.audienceIds?.length ?? 0,
+        });
         return this.campaignsService.createCampaign(dto);
     }
     list() {
         return this.campaignsService.listCampaigns();
+    }
+    getOne(id) {
+        return this.campaignsService.getCampaign(id);
     }
     updateStatus(id, status) {
         return this.campaignsService.updateStatus(id, status);
@@ -45,6 +55,13 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], CampaignsController.prototype, "list", null);
+__decorate([
+    (0, common_1.Get)(':id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], CampaignsController.prototype, "getOne", null);
 __decorate([
     (0, common_1.Patch)(':id/status/:status'),
     __param(0, (0, common_1.Param)('id')),

@@ -5,5 +5,6 @@ export declare class CampaignsController {
     constructor(campaignsService: CampaignsService);
     create(dto: CreateCampaignDto): Promise<any>;
     list(): Promise<any[]>;
+    getOne(id: string): Promise<any>;
     updateStatus(id: string, status: string): Promise<any>;
 }

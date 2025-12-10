@@ -25,6 +25,7 @@ let SchedulerService = SchedulerService_1 = class SchedulerService {
     }
     async scanScheduledCampaigns() {
         const nowIso = new Date().toISOString();
+        console.log('[scheduler] scanScheduledCampaigns start', { nowIso });
         const { data: campaigns, error } = await this.supabase
             .getClient()
             .from('campaigns')
@@ -35,8 +36,11 @@ let SchedulerService = SchedulerService_1 = class SchedulerService {
             this.logger.error('Failed to load scheduled campaigns', error);
             return;
         }
-        if (!campaigns?.length)
+        if (!campaigns?.length) {
+            console.log('[scheduler] no scheduled campaigns');
             return;
+        }
+        console.log('[scheduler] scheduled campaigns found', { count: campaigns.length });
         for (const campaign of campaigns) {
             try {
                 await this.enqueueCampaign(campaign);
@@ -107,6 +111,11 @@ let SchedulerService = SchedulerService_1 = class SchedulerService {
                 variables: contact.attributes ?? {},
                 sendAfter,
                 replyTo: campaign.reply_to ?? undefined,
+            });
+            console.log('[scheduler] enqueued mail', {
+                campaignId: campaign.id,
+                contactId: contact.id,
+                email: contact.email,
             });
         }
     }

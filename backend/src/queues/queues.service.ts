@@ -24,6 +24,12 @@ export class QueueService {
 
   async enqueueMail(job: MailJobPayload) {
     const delay = job.sendAfter ? Math.max(job.sendAfter.getTime() - Date.now(), 0) : 0;
+    console.log('[queue] enqueueMail', {
+      messageId: job.messageId,
+      email: job.email,
+      campaignId: job.campaignId,
+      delayMs: delay,
+    });
     await this.queue.add(MAIL_QUEUE, job, { delay });
     this.logger.log(`Enqueued mail for ${job.email} (campaign ${job.campaignId})`);
   }

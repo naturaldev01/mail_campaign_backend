@@ -8,21 +8,17 @@
         "requestBody": {
           "required": true,
           "content": {
-            "multipart/form-data": {
+            "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "file": { "type": "string", "format": "binary" },
-                  "audienceId": { "type": "string", "format": "uuid" },
-                  "timezoneFallback": { "type": "string" }
-                },
-                "required": ["file"]
+                "$ref": "#/components/schemas/UploadCsvDto"
               }
             }
           }
         },
         "responses": {
-          "201": { "description": "CSV uploaded and contacts upserted" }
+          "201": {
+            "description": ""
+          }
         },
         "tags": [
           "Uploads"
@@ -36,27 +32,17 @@
         "requestBody": {
           "required": true,
           "content": {
-            "multipart/form-data": {
+            "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "file": { "type": "string", "format": "binary" },
-                  "subject": { "type": "string" },
-                  "campaignName": { "type": "string" },
-                  "bodyHtml": { "type": "string" },
-                  "bodyText": { "type": "string" },
-                  "fromName": { "type": "string" },
-                  "fromEmail": { "type": "string", "format": "email" },
-                  "replyTo": { "type": "string", "format": "email" },
-                  "timezoneFallback": { "type": "string" }
-                },
-                "required": ["file", "subject"]
+                "$ref": "#/components/schemas/SendCsvDto"
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "CSV parsed, contacts created, messages enqueued" }
+          "201": {
+            "description": ""
+          }
         },
         "tags": [
           "Uploads"
@@ -238,6 +224,29 @@
         ]
       }
     },
+    "/campaigns/{id}": {
+      "get": {
+        "operationId": "CampaignsController_getOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Campaigns"
+        ]
+      }
+    },
     "/campaigns/{id}/status/{status}": {
       "patch": {
         "operationId": "CampaignsController_updateStatus",
@@ -363,17 +372,7 @@
       },
       "SendCsvDto": {
         "type": "object",
-        "properties": {
-          "subject": { "type": "string" },
-          "campaignName": { "type": "string" },
-          "bodyHtml": { "type": "string" },
-          "bodyText": { "type": "string" },
-          "fromName": { "type": "string" },
-          "fromEmail": { "type": "string", "format": "email" },
-          "replyTo": { "type": "string", "format": "email" },
-          "timezoneFallback": { "type": "string" }
-        },
-        "required": ["subject"]
+        "properties": {}
       },
       "CreateAudienceDto": {
         "type": "object",

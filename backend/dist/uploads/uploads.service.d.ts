@@ -7,15 +7,18 @@ export declare class UploadsService {
     private readonly queueService;
     private readonly logger;
     constructor(supabase: SupabaseService, queueService: QueueService);
+    private parseCsvRecords;
     uploadCsv(file: Express.Multer.File, dto: UploadCsvDto): Promise<{
         batchId: any;
         totalRows: number;
         validRows: number;
         invalidRows: number;
+        storagePath: string | null;
     }>;
     sendCsv(file: Express.Multer.File, dto: SendCsvDto): Promise<{
         campaignId: any;
         audienceId: any;
         queued: number;
+        storagePath: string | null;
     }>;
 }
