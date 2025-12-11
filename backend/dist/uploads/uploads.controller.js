@@ -18,6 +18,7 @@ const platform_express_1 = require("@nestjs/platform-express");
 const uploads_service_1 = require("./uploads.service");
 const upload_csv_dto_1 = require("./dto/upload-csv.dto");
 const send_csv_dto_1 = require("./dto/send-csv.dto");
+const filter_csv_dto_1 = require("./dto/filter-csv.dto");
 let UploadsController = class UploadsController {
     uploadsService;
     constructor(uploadsService) {
@@ -28,6 +29,9 @@ let UploadsController = class UploadsController {
     }
     sendCsv(file, dto) {
         return this.uploadsService.sendCsv(file, dto);
+    }
+    filterCsv(file, dto) {
+        return this.uploadsService.filterCsv(file, dto);
     }
 };
 exports.UploadsController = UploadsController;
@@ -49,6 +53,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, send_csv_dto_1.SendCsvDto]),
     __metadata("design:returntype", void 0)
 ], UploadsController.prototype, "sendCsv", null);
+__decorate([
+    (0, common_1.Post)('csv/filter'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    __param(0, (0, common_1.UploadedFile)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, filter_csv_dto_1.FilterCsvDto]),
+    __metadata("design:returntype", void 0)
+], UploadsController.prototype, "filterCsv", null);
 exports.UploadsController = UploadsController = __decorate([
     (0, common_1.Controller)('uploads'),
     __metadata("design:paramtypes", [uploads_service_1.UploadsService])

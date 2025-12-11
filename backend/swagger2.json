@@ -1,0 +1,345 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Mail Campaign API (frontend needs)",
+    "version": "1.0.0",
+    "description": "Endpoints and payloads as used by the Next.js frontend."
+  },
+  "paths": {
+    "/uploads/csv": {
+      "get": {
+        "summary": "List uploaded CSV files",
+        "responses": {
+          "200": {
+            "description": "List of CSV file names",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "files": {
+                          "type": "array",
+                          "items": { "type": "string" }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Upload CSV and create campaign-ready payload",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UploadCsvRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Uploaded" }
+        }
+      }
+    },
+    "/uploads/csv/send": {
+      "post": {
+        "summary": "Send CSV immediately",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UploadCsvRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Sent" }
+        }
+      }
+    },
+    "/uploads/csv/filter": {
+      "post": {
+        "summary": "Filter a CSV",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/FilterCsvRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Filtered CSV info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fileName": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "CSV file is required" }
+        }
+      }
+    },
+    "/audiences": {
+      "get": {
+        "summary": "List audiences",
+        "responses": { "200": { "description": "OK" } }
+      },
+      "post": {
+        "summary": "Create audience",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateAudienceRequest" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/audiences/{id}/contacts": {
+      "post": {
+        "summary": "Add contact to audience",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AddContactRequest" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/audiences/{id}/sync": {
+      "post": {
+        "summary": "Trigger audience sync",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "201": { "description": "Triggered" } }
+      }
+    },
+    "/templates": {
+      "get": { "summary": "List templates", "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "summary": "Create template",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTemplateRequest" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/campaigns": {
+      "get": { "summary": "List campaigns", "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "summary": "Create campaign",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateCampaignRequest" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/campaigns/{id}": {
+      "get": {
+        "summary": "Get campaign",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/campaigns/{id}/status/{status}": {
+      "patch": {
+        "summary": "Update campaign status",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "status", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Updated" } }
+      }
+    },
+    "/reports/campaigns/{id}": {
+      "get": {
+        "summary": "Get campaign report",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/reports/campaigns/{id}/messages": {
+      "get": {
+        "summary": "Get campaign messages",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UploadCsvRequest": {
+        "type": "object",
+        "required": ["fileName", "contentBase64", "subject"],
+        "properties": {
+          "fileName": { "type": "string" },
+          "contentBase64": { "type": "string", "description": "Base64 of CSV file" },
+          "subject": { "type": "string" },
+          "campaignName": { "type": "string" },
+          "bodyHtml": { "type": "string" },
+          "bodyText": { "type": "string" },
+          "fromName": { "type": "string" },
+          "fromEmail": { "type": "string" },
+          "replyTo": { "type": "string" },
+          "timezoneFallback": { "type": "string" }
+        }
+      },
+      "FilterCsvRequest": {
+        "type": "object",
+        "required": ["fileName", "contentBase64", "filterField", "operator"],
+        "properties": {
+          "fileName": { "type": "string" },
+          "contentBase64": { "type": "string", "description": "Base64 of the CSV to be filtered (frontend sends the same content it uploaded)" },
+          "filterField": { "type": "string", "enum": ["email", "country", "timezone"] },
+          "operator": { "type": "string", "enum": ["equals", "contains", "in"] },
+          "value": { "type": "string", "description": "Optional. For operator 'in', supply comma-separated list." },
+          "outputFileName": { "type": "string", "description": "Optional name for filtered CSV" }
+        }
+      },
+      "CreateAudienceRequest": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": { "type": "string", "description": "e.g. 'dynamic' or 'static'" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "filterRules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": { "type": "string" },
+                "operator": { "type": "string" },
+                "value": { "type": "string" },
+                "source": { "type": "string" }
+              }
+            }
+          },
+          "syncProvider": { "type": "string" }
+        }
+      },
+      "AddContactRequest": {
+        "type": "object",
+        "required": ["email"],
+        "properties": {
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "timezone": { "type": "string" },
+          "attributes": { "type": "object" }
+        }
+      },
+      "CreateTemplateRequest": {
+        "type": "object",
+        "required": ["name", "subject", "bodyHtml", "bodyText"],
+        "properties": {
+          "name": { "type": "string" },
+          "subject": { "type": "string" },
+          "bodyHtml": { "type": "string" },
+          "bodyText": { "type": "string" }
+        }
+      },
+      "CreateCampaignRequest": {
+        "type": "object",
+        "required": ["name", "audienceIds", "templateId"],
+        "properties": {
+          "name": { "type": "string" },
+          "audienceIds": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "templateId": { "type": "string" },
+          "scheduledAt": { "type": "string", "format": "date-time" },
+          "subjectOverride": { "type": "string" },
+          "fromName": { "type": "string" },
+          "fromEmail": { "type": "string" },
+          "replyTo": { "type": "string" },
+          "sendOptions": {
+            "type": "object",
+            "properties": {
+              "timezone": { "type": "string" },
+              "timeWindows": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "daysOfWeek": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "startTime": { "type": "string" },
+                    "endTime": { "type": "string" }
+                  }
+                }
+              },
+              "cadence": {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string" },
+                  "minutes": { "type": "integer" },
+                  "sendAt": { "type": "string" }
+                }
+              },
+              "dateRange": {
+                "type": "object",
+                "properties": {
+                  "start": { "type": "string" },
+                  "end": { "type": "string" }
+                }
+              },
+              "throttle": {
+                "type": "object",
+                "properties": {
+                  "perMinute": { "type": "integer" },
+                  "perHour": { "type": "integer" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -49,6 +49,30 @@
         ]
       }
     },
+    "/uploads/csv/filter": {
+      "post": {
+        "operationId": "UploadsController_filterCsv",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilterCsvDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Uploads"
+        ]
+      }
+    },
     "/audiences": {
       "post": {
         "operationId": "AudiencesController_createAudience",
@@ -371,6 +395,10 @@
         "properties": {}
       },
       "SendCsvDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "FilterCsvDto": {
         "type": "object",
         "properties": {}
       },

@@ -69,6 +69,104 @@ let UploadsService = UploadsService_1 = class UploadsService {
         }
         return mapped;
     }
+    async filterCsv(file, dto) {
+        if (!file) {
+            throw new common_1.BadRequestException('CSV file is required');
+        }
+        if (!dto.filterField) {
+            throw new common_1.BadRequestException('filterField is required');
+        }
+        if (dto.operator === 'in' && (!dto.values || !dto.values.length)) {
+            throw new common_1.BadRequestException('values is required for "in" operator');
+        }
+        if (dto.operator !== 'in' && !dto.value) {
+            throw new common_1.BadRequestException('value is required for the selected operator');
+        }
+        const supabaseClient = this.supabase.getClient();
+        console.log('[filterCsv] start', {
+            filename: file.originalname,
+            size: file.size,
+            filterField: dto.filterField,
+            operator: dto.operator,
+            value: dto.value,
+            values: dto.values,
+        });
+        const records = this.parseCsvRecords(file);
+        console.log('[filterCsv] parsed records', { total: records.length });
+        const filterField = dto.filterField.toLowerCase().trim();
+        const valuesSet = dto.operator === 'in' && dto.values
+            ? new Set(dto.values.map((v) => (v ?? '').toString().toLowerCase().trim()))
+            : undefined;
+        const normValue = dto.value?.toString().toLowerCase().trim();
+        const filtered = records.filter((r) => {
+            const attributes = r;
+            const raw = attributes[filterField] ?? attributes.attributes?.[filterField];
+            if (raw === undefined || raw === null)
+                return false;
+            const val = raw.toString().toLowerCase().trim();
+            if (dto.operator === 'equals')
+                return val === normValue;
+            if (dto.operator === 'contains')
+                return normValue ? val.includes(normValue) : false;
+            if (dto.operator === 'in')
+                return valuesSet ? valuesSet.has(val) : false;
+            return false;
+        });
+        console.log('[filterCsv] filtered', { total: filtered.length });
+        if (!filtered.length) {
+            throw new common_1.BadRequestException('No rows matched filter');
+        }
+        const audienceName = dto.audienceName ??
+            `Filtered ${filterField} ${dto.operator} ${dto.operator === 'in' ? dto.values?.join(',') : dto.value}`;
+        const { data: audience, error: audienceError } = await supabaseClient
+            .from('audiences')
+            .insert({
+            name: audienceName,
+            description: 'Filtered audience from CSV',
+            type: 'static',
+        })
+            .select()
+            .single();
+        if (audienceError || !audience) {
+            this.logger.error('Failed to create filtered audience', audienceError);
+            throw new common_1.BadRequestException('Could not create filtered audience');
+        }
+        const contactsPayload = [];
+        const seen = new Set();
+        for (const record of filtered) {
+            const email = (record.email ?? '').toLowerCase();
+            const timezone = record.timezone ?? dto.timezoneFallback ?? 'UTC';
+            if (!email)
+                continue;
+            if (seen.has(email))
+                continue;
+            seen.add(email);
+            const attributes = { ...record, timezone };
+            delete attributes.email;
+            delete attributes.timezone;
+            contactsPayload.push({
+                audience_id: audience.id,
+                email,
+                attributes,
+                status: 'active',
+            });
+        }
+        if (!contactsPayload.length) {
+            throw new common_1.BadRequestException('No valid emails after filtering');
+        }
+        console.log('[filterCsv] contacts prepared', { total: contactsPayload.length });
+        const { error: contactError } = await supabaseClient.from('contacts').upsert(contactsPayload, {
+            onConflict: 'audience_id,email',
+        });
+        if (contactError) {
+            this.logger.error('Failed to upsert filtered contacts', contactError);
+            throw new common_1.BadRequestException('Could not upsert filtered contacts');
+        }
+        return {
+            audienceId: audience.id,
+            filteredRows: contactsPayload.length,
+        };
+    }
     async uploadCsv(file, dto) {
         if (!file) {
             throw new common_1.BadRequestException('CSV file is required');
